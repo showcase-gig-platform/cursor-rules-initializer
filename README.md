@@ -19,7 +19,7 @@ cp -r cursor-rules-initializer/.cursor ~/your-repository/
 ```
 
 ### 実行
-0. 推論能力の高いモデルを使用して実行を推奨します
+推論能力の高いモデルを使用しての実行を推奨します
 1. Planモードで計画を立てる
    - `/cursor-rules-initializer/init`
 2. AIからの質問があれば回答する
