@@ -100,7 +100,7 @@ func TestOrderService_CreateOrder(t *testing.T) {
 ```
 
 ## モックの使用
-* 依存関係のモックには `github.com/uber-go/mock` (`gomock`) を使用する
+* 依存関係のモックには `go.uber.org/mock/gomock` (`gomock`) を使用する
 * モック生成コマンドを実行してモックを生成する
 * 生成されたモックは `/gen/mock/` ディレクトリに配置される
 * テスト内でモックを初期化する際は `gomock.NewController(t)` を使用
