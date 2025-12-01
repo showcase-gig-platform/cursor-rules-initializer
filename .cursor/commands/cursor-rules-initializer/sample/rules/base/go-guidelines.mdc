@@ -1,0 +1,48 @@
+---
+description: 
+alwaysApply: true
+---
+# Go コーディングガイドライン
+
+## Go のコーディング規則
+* **フォーマット:** `make lint` を実行し、`goimports` によるフォーマットと `go vet` による静的解析をパスすること。`golangci-lint` もCIで実行される。
+* **命名規則:**
+    * パッケージ名: `lowercase` または `snake_case` (例: `user`, `order_repository`)
+    * 型名 (struct, interface): `PascalCase`
+    * 変数名: `camelCase` (スコープに応じて説明的な長さに)
+    * 関数・メソッド名: 公開は `PascalCase`, 非公開/メソッドは `camelCase`。動詞で始める。
+    * 定数名: `PascalCase`。関連する定数は接頭辞でグループ化 (例: `OrderStatePending`, `OrderStateCompleted`)。
+    * エラー変数: 公開は `ErrXxx` (例: `ErrOrderNotFound`), 非公開は `errXxx`。
+    * ファイル名: `snake_case.go` (例: `order_entity.go`, `user_service.go`)
+* **エラーハンドリング:**
+    * エラーは適切にチェックし、無視しない。
+    * エラーをラップする場合は `fmt.Errorf` と `%w` を使用し、コンテキストを追加する。
+    * Sentinel Error (`ErrXxx` 形式の公開エラー変数) またはカスタムエラー型を適切に使い分ける。
+    * ユースケース層でのエラーは `app/usecase/error.go` で定義されたエラー型を使用することを検討する。
+* **インターフェース:**
+    * 利用側で定義する (Consumer-defined interfaces)。
+    * 必要最小限のメソッドを持つように設計する (`if needed` ベース)。
+    * インターフェース名は能力を表すようにする (例: `OrderReader`, `PaymentProcessor`)。
+* **Context:**
+    * リクエストスコープの処理やキャンセル伝播のために `context.Context` を第一引数として渡す。
+    * Contextからの値の取得は `context.Value` を直接使うのではなく、型安全なヘルパー関数を用意する。
+* **依存性注入:** DIコンテナやwireなどのツールを使用して依存関係を管理する。
+* **ゼロ値:** 構造体のフィールドは可能な限りゼロ値が意味を持つように設計する。ポインタ型は `nil` が有効な状態を表す場合にのみ使用する。
+* **並行処理:**
+    * Goroutineを使用する場合は、リソースリークやレースコンディションに注意する。
+    * `sync` パッケージ (Mutex, WaitGroupなど) を適切に使用する。
+    * Channelを使ったコミュニケーションを検討する。
+* **コメント:**
+    * 公開される型、関数、定数、変数には godoc コメントを記述する。
+    * 複雑なロジックや、自明でないコードには説明コメントを追加する。
+    * TODOコメントには担当者やIssue番号を含めることが望ましい。
+* **テスト:** [test-rule.mdc](.cursor/rules/testing/test-rule.mdc) の規則に従う。
+
+## エラーハンドリングとロギング
+* エラーの種類に応じて適切なログレベルを使用する:
+  * Info: 通常の操作情報
+  * Warn: 警告（重大ではないが注意が必要）
+  * Error: 重大なエラー（サービスの一部機能に影響）
+  * Fatal: 致命的なエラー（サービス全体に影響）
+* ユーザーに表示するエラーメッセージと内部ログは分離する。
+* 外部サービス連携時のエラーは適切にラップし、必要に応じてリトライロジックを実装する。
