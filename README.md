@@ -13,7 +13,7 @@ Cursor v2.1.42で動作確認済み
 ## 使用手順
 
 ### インストール
-```
+```bash
 git clone https://github.com/showcase-gig-platform/cursor-rules-initializer.git
 cp -r cursor-rules-initializer/.cursor ~/your-repository/
 ```
