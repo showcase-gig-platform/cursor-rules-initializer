@@ -1,0 +1,130 @@
+---
+description: usecase層（ビジネスロジックとトランザクション管理）に適用するルール
+globs: app/usecase/**/*.go
+alwaysApply: false
+---
+
+# Usecase層を実装する際に適用するルール
+
+## 概要
+
+Usecase層は、アプリケーションのビジネスロジックを実装する層です。
+ドメイン層のオブジェクトを操作し、プレゼンテーション層とドメイン層の橋渡しを行います。
+また、トランザクション管理の主たる責任を持ちます。
+
+## 構成要素
+
+1. **ユースケース** (`*_usecase/`)
+   - 特定のビジネスユースケースの実装
+   - トランザクション境界の定義と管理
+   - 入出力データの変換（DTOパターン）
+
+2. **エラー定義** (`error.go`)
+   - ユースケース層固有のエラー定義
+   - エラーハンドリングの統一
+
+## **詳細構造と命名規則**
+ ```
+ usecase/
+ ├── user/                       # ユーザー関連のユースケース
+ │   ├── create_user_usecase.go  # ユーザー作成ユースケース
+ │   ├── get_user_usecase.go     # ユーザー取得ユースケース
+ │   └── dto.go                  # DTO定義
+ ├── order/                      # 注文関連のユースケース
+ │   ├── create_order_usecase.go # 注文作成ユースケース
+ │   └── dto.go                  # DTO定義
+ └── error.go                    # 共通エラー定義
+ ```
+   
+## ポイント
+ - ユースケースは単一責任の原則に従い、一つの操作に集中します
+ - 入力と出力は具体的なユースケース実装で明確に定義されたDTOを使用します
+ - 入力のバリデーションはdomainへのNewなどによる変換時に、変換処理内で行います
+ - トランザクション境界はユースケース層で管理します
+ - ドメイン層のオブジェクトを操作し、ビジネスロジックを実行します
+ - 依存性は明示的にコンストラクタで注入します
+ - 出力への変換はユースケース層のconverterで行います
+
+## 実装規則
+
+### 1. 基本構造
+```go
+type ExampleUsecase interface {
+    Execute(ctx context.Context, input InputDTO) (*OutputDTO, error)
+}
+
+type exampleUsecase struct {
+    userRepository domain.UserRepository
+    dbClient       database.Client
+    logger         logger.Logger
+}
+
+func NewExampleUsecase(
+    userRepository domain.UserRepository,
+    dbClient database.Client,
+    logger logger.Logger,
+) ExampleUsecase {
+    return &exampleUsecase{
+        userRepository: userRepository,
+        dbClient:       dbClient,
+        logger:         logger,
+    }
+}
+
+func (uc *exampleUsecase) Execute(ctx context.Context, input InputDTO) (*OutputDTO, error) {
+    // 1. トランザクション開始
+    // 2. ドメインオブジェクトの操作
+    // 3. リポジトリを使用した永続化
+    // 4. DTOへの変換と返却
+}
+```
+
+### 2. 命名規則
+- インターフェース名: `XxxUsecase`
+- 実装構造体名: `xxxUsecase`（小文字で開始）
+- ファイル名: `xxx_usecase.go`
+- メソッド名: 基本的に`Execute`を使用
+
+### 3. トランザクション管理
+- トランザクションの開始・コミットはユースケース層の主たる責務
+- トランザクションの境界を明確に定義し、一貫性を保証
+- トランザクションのロールバックとリカバリ処理の実装
+
+### 4. エラーハンドリング
+- トランザクションエラーの適切な処理とロールバック
+
+### 5. 依存性の管理
+- 依存するコンポーネントはコンストラクタで注入
+- 循環依存を避ける
+- 適切な抽象化レベルを維持
+
+## アンチパターン
+
+1. **避けるべき実装**
+   - ドメインロジックの実装（ドメイン層の責務）
+   - プレゼンテーション層への直接的な依存
+   - 複数のユースケース間での実装の重複
+   - トランザクション境界の不明確な定義
+
+2. **注意点**
+   - 単一責任の原則を遵守
+   - 適切な粒度でのユースケース分割
+   - ドメイン層のルール違反を防ぐ
+   - トランザクション管理の責務を他の層に移譲しない
+
+## テスト規則
+
+1. **ユニットテスト**
+   - モックを使用して依存コンポーネントを置き換え
+   - トランザクション管理のテスト
+   - エラーケースの網羅
+
+2. **テストケース作成**
+   - 正常系と異常系の両方をカバー
+   - トランザクションのロールバックを確認
+   - トランザクション境界の一貫性テスト
+
+## 実装例
+- usecase: [create_user_usecase.go](../../../app/usecase/user/create_user_usecase.go)
+- dto: [dto.go](../../../app/usecase/user/dto.go)
+- error: [error.go](../../../app/usecase/error.go)

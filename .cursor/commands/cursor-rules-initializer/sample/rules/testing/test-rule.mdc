@@ -1,0 +1,168 @@
+---
+description: testファイルを修正したときに適用するルール
+globs: *_test.go
+alwaysApply: false
+---
+# テスト規則
+
+## テストファイルの命名規則
+* テストファイルは実装ファイルと同じディレクトリに配置する
+* ファイル名は `{実装ファイル名}_test.go` とする
+* 例: `order_service.go` → `order_service_test.go`
+
+## テスト関数の命名規則
+* テスト関数名は `Test` で始める
+* 構造体のメソッドをテストする場合: `Test_{構造体名}_{メソッド名}`
+  * 例: `Test_orderService_CreateOrder`
+* パッケージ関数をテストする場合: `Test{関数名}`
+  * 例: `TestNewOrderState`
+* 複数のテストケースを持つ場合は、`t.Run()` のサブテスト名に日本語で説明的な名前を付ける
+  * 例: `"正常系: 注文作成"`、`"異常系: 在庫不足"`
+
+## テスト構造
+* テーブル駆動テスト（Table-Driven Tests）を推奨する
+  * テストケースを構造体のスライスとして定義
+  * 各テストケースに名前 (`name`)、入力 (`args`)、期待される出力 (`want*`)、期待されるエラー (`wantErr`) を含める
+* `t.Run()` を使用して各テストケースをサブテストとして実行する
+* 複雑なセットアップやアサーションはヘルパー関数に切り出す
+
+### テーブル駆動テストの例
+```go
+func TestOrderService_CreateOrder(t *testing.T) {
+    type fields struct { // モック化する依存関係
+        orderRepo repository.OrderRepository
+        itemRepo  repository.ItemRepository
+    }
+    type args struct { // テスト対象メソッドの引数
+        ctx context.Context
+        req *usecase.CreateOrderRequest
+    }
+    tests := []struct {
+        name    string
+        fields  fields // モックの期待動作設定用
+        args    args
+        want    *usecase.CreateOrderResponse
+        wantErr bool // エラー発生を期待するかどうか
+        // wantErrIs as error // 特定のエラー型を期待する場合 (errors.Is)
+        // wantErrMsg string // 特定のエラーメッセージを期待する場合 (strings.Contains)
+    }{
+        {
+            name: "正常系: 注文作成",
+            fields: fields{
+                // モックリポジトリのEXPECT設定
+            },
+            args: args{
+                ctx: context.Background(),
+                req: &usecase.CreateOrderRequest{ /* ... */ },
+            },
+            want: &usecase.CreateOrderResponse{ /* ... */ },
+            wantErr: false,
+        },
+        // 他のテストケース...
+    }
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            ctrl := gomock.NewController(t)
+            defer ctrl.Finish()
+
+            // モックの準備 (tt.fields を使用)
+            mockOrderRepo := mock_repository.NewMockOrderRepository(ctrl)
+            // mockOrderRepo.EXPECT()...
+
+            // テスト対象のサービス/メソッドを初期化
+            s := &OrderService{
+                orderRepo: mockOrderRepo,
+                // ...
+            }
+
+            // テスト実行
+            got, err := s.CreateOrder(tt.args.ctx, tt.args.req)
+
+            // アサーション
+            if (err != nil) != tt.wantErr {
+                t.Errorf("CreateOrder() error = %v, wantErr %v", err, tt.wantErr)
+                return
+            }
+            // if tt.wantErrIs != nil && !errors.Is(err, tt.wantErrIs) {
+            //     t.Errorf("CreateOrder() error = %v, wantErrIs %v", err, tt.wantErrIs)
+            // }
+            // if tt.wantErrMsg != "" && !strings.Contains(err.Error(), tt.wantErrMsg) {
+            //    t.Errorf("CreateOrder() error = %v, wantErrMsg %q", err, tt.wantErrMsg)
+            //}
+
+            // 戻り値の比較 (ポインタや複雑な構造体は go-cmp を推奨)
+            if diff := cmp.Diff(tt.want, got, cmpopts.IgnoreUnexported(/* 必要に応じて */)); diff != "" {
+                t.Errorf("CreateOrder() mismatch (-want +got):\n%s", diff)
+            }
+        })
+    }
+}
+```
+
+## モックの使用
+* 依存関係のモックには `go.uber.org/mock/gomock` (`gomock`) を使用する
+* モック生成コマンドを実行してモックを生成する
+* 生成されたモックは `/gen/mock/` ディレクトリに配置される
+* テスト内でモックを初期化する際は `gomock.NewController(t)` を使用
+* テスト終了時に `ctrl.Finish()` を呼び出す (defer推奨)
+
+## アサーション
+* 基本的には標準の `if` 文と `t.Errorf()` / `t.Fatalf()` を使用する
+* 複雑な構造体やスライスの比較には `github.com/google/go-cmp/cmp` を推奨する
+    * `cmp.Diff()` で差分を表示
+    * 必要に応じて `cmpopts` パッケージのオプションを使用 (例: `cmpopts.IgnoreUnexported()`, `cmpopts.SortSlices()`)
+* エラーの比較には `errors.Is()` や `errors.As()` を使用する
+
+## テストカバレッジ
+* `go test -cover ./...` でカバレッジを確認できる
+* CIでもカバレッジレポートが出力される
+* 特にドメイン層とユースケース層で高いカバレッジを目指す
+* 単純なゲッター/セッターや自明なコードを除き、主要なロジックはテストでカバーする
+* エッジケースや異常系のテストも記述する
+
+## レイヤー別テスト戦略
+
+### ドメイン層のテスト (`app/domain/`)
+* エンティティ、値オブジェクト、ドメインサービスのロジックをテストする
+* 外部依存がないため、モックは基本的に不要
+* ビジネスルールの正確性、不変条件の維持を検証する
+* 境界値、異常値、ゼロ値などのケースを網羅する
+
+### ユースケース層のテスト (`app/usecase/`)
+* ユースケースのロジック、入力バリデーション、出力変換をテストする
+* リポジトリ、外部サービス、ドメインサービスなどの依存関係はモック化する
+* 正常系、異常系（バリデーションエラー、依存関係からのエラーなど）をテストする
+
+### インフラストラクチャ層のテスト (`app/infrastructure/`)
+* リポジトリ実装:
+    * 可能であればインメモリ実装やテスト用DBコンテナ (`testcontainers-go`) を使用したテストを行う
+    * 難しい場合は、主要なクエリやロジックをテストする
+* 外部クライアント (gRPC, HTTP):
+    * モックサーバー (`httptest.NewServer` など) やモッククライアントを使用してテストする
+    * リクエスト構築、レスポンス解析、エラーハンドリングを検証する
+
+### プレゼンテーション層のテスト (`app/presentation/`)
+* コントローラーのテスト:
+    * リクエスト解析、入力バリデーション、ユースケース呼び出し、レスポンス構築をテストする
+    * ユースケース層はモック化する
+    * `net/http/httptest` を使用してHTTPリクエスト/レスポンスをシミュレートする
+* gRPCインターセプターやHTTPミドルウェアのテストも行う
+
+## 統合テスト (`integration_test/`)
+* 実際のユースケースに基づいて一連の操作を検証するテスト
+* 各テストは `integration_test/scenarios/` ディレクトリに配置
+* 各シナリオは一連の操作を実行し、期待される結果を検証
+* 実行方法: `go test ./integration_test/...`
+
+## テストデータ
+* テストデータは以下の方法で用意する:
+  * ユニットテスト: テストコード内で直接定義するか、テストヘルパー関数を使用
+  * インテグレーションテスト: `integration_test/fixture` などでデータを管理
+* テストデータはできるだけ最小限に保ち、テストの目的に必要な属性のみを含める
+* 日付や時間に依存するテストでは、Clockインターフェースを使用し、テスト時に固定時間を提供する
+
+## CI/CDでのテスト
+* GitHub Actionsでテストが実行される
+* ユニットテスト、インテグレーションテスト、リンター、カバレッジレポートが含まれる
+* PRのマージ前に全てのテストが通過する必要がある
+* テストの失敗は迅速に修正する

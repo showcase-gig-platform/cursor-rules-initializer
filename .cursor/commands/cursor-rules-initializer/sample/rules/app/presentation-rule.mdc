@@ -1,0 +1,40 @@
+---
+description: presentation層（APIエンドポイントとリクエスト/レスポンス処理）に適用するルール
+globs: app/presentation/**/*.go
+alwaysApply: false
+---
+
+# presentation層の修正をする際に適用するルール
+
+## 役割
+ - API エンドポイントの定義
+ - リクエスト/レスポンスの変換
+ - ユースケースの呼び出し
+ - バリデーション
+ - エラーハンドリング
+ 
+## **詳細構造と命名規則**
+ ```
+ presentation/
+ ├── controller/                 # コントローラー
+ │   └── api/                    # API実装
+ │       ├── user_controller.go  # Userコントローラー
+ │       └── order_controller.go # Orderコントローラー
+ ├── middleware/                 # ミドルウェア
+ │   ├── auth.go                 # 認証ミドルウェア
+ │   └── logging.go              # ロギングミドルウェア
+ └── error/                      # エラーハンドリング
+     └── converter.go            # エラー変換
+ ```
+ 
+## **実装ポイント**
+ - コントローラーはユースケースを呼び出すだけで、ビジネスロジックは含みません
+ - プロトコルバッファからリクエストへの変換を適切に行います
+   - validationはusecase層の役割なので、コントローラーではusecaseが要求するinputへの変換だけを行います
+ - ユースケース呼び出し後のエラーを適切にハンドリングします
+   - エラーはgRPCステータスコードに変換して返却します
+ - プロトコルバッファとDTOの変換を行います
+
+## 実装例
+- controller: [user_controller.go](../../../app/presentation/controller/api/user_controller.go)
+- error converter: [converter.go](../../../app/presentation/error/converter.go)

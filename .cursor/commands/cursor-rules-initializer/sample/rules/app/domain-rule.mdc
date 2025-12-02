@@ -1,0 +1,72 @@
+---
+description: domain層の実装に適用するルール
+globs: app/domain/**/*.go
+alwaysApply: false
+---
+
+# domain層の修正をする際に適用するルール
+
+## 役割
+ - ビジネスロジックの中心
+ - エンティティと値オブジェクトの定義
+ - リポジトリインターフェースの定義
+ - ドメインサービスの実装
+
+## **詳細構造と命名規則**
+
+DDDの戦略的設計に従い、**ドメイン境界（集約単位）** でパッケージを分割します。
+EntityやValue Objectといった戦術パターンではなく、ビジネスドメインの境界を優先します。
+
+   ```
+   domain/
+   ├── user/                       # ユーザードメイン
+   │   ├── user.go                 # Userエンティティ（集約ルート）
+   │   ├── user_id.go              # UserID値オブジェクト
+   │   ├── email.go                # Email値オブジェクト
+   │   ├── user_repository.go      # Userリポジトリインターフェース
+   │   └── user_service.go         # ユーザードメインサービス（必要な場合）
+   ├── order/                      # 注文ドメイン
+   │   ├── order.go                # Orderエンティティ（集約ルート）
+   │   ├── order_id.go             # OrderID値オブジェクト
+   │   ├── order_item.go           # OrderItemエンティティ
+   │   ├── order_repository.go     # Orderリポジトリインターフェース
+   │   └── order_service.go        # 注文ドメインサービス（必要な場合）
+   ├── product/                    # 商品ドメイン
+   │   ├── product.go              # Productエンティティ（集約ルート）
+   │   ├── product_id.go           # ProductID値オブジェクト
+   │   └── product_repository.go   # Productリポジトリインターフェース
+   └── shared/                     # 共通の型定義（複数ドメインで使用）
+       └── money.go                # Money値オブジェクト
+   ```
+
+### パッケージ設計の原則
+- **ドメイン境界を優先**: Entity/VO/Repositoryではなく、ビジネスドメイン（user, order, product等）でパッケージを分ける
+- **集約単位で凝集**: 1つの集約に関連するEntity、VO、Repository、Domain Serviceは同じパッケージに配置
+- **shared/は最小限に**: 複数ドメインで本当に共有が必要な型のみ配置（安易な共通化を避ける）
+   
+## **実装ポイント**
+ - ドメイン駆動設計のプリンシパルに従い、振る舞いを適切に設計しビジネスルールはドメイン層に集約します
+ - エンティティは状態と振る舞いを持ち、ビジネスルールを実装します
+ - 値オブジェクトは不変であり、等価性で比較されます
+ - ドメインサービスはエンティティに属さないドメインロジックを実装します
+ - リポジトリインターフェースはデータの永続化と取得の抽象を提供します
+ - 集約ルートを通じてのみ集約内のエンティティにアクセスします
+
+## テストのルール
+
+- domain層のファイルを修正、メソッドや関数を追加した場合した場合は、以下に従って同じタスク内でテストを作成してください
+  - 新規追加の場合
+    - テストを追加する
+    - testファイルがない場合は、Goの慣習に従い修正しているファイルと同じフォルダにテストファイルを作成してからテストを追加すること
+  - 修正の場合
+    - テストを修正する
+    - 該当するtestがない場合は、新規追加の場合と同様に新しくテストを作成すること
+- test作成のルール
+  - テーブル駆動テストで書くこと
+  - 正常系、異常系、エッジケースを含め網羅的に作成すること
+
+## 実装例
+- entity（集約ルート）: [user.go](../../../app/domain/user/user.go) 
+- value_object: [user_id.go](../../../app/domain/user/user_id.go) 
+- repository: [user_repository.go](../../../app/domain/user/user_repository.go) 
+- domain_service: [order_service.go](../../../app/domain/order/order_service.go)

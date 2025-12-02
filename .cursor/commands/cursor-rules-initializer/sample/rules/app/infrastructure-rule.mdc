@@ -1,0 +1,35 @@
+---
+description: infrastructure層（リポジトリ実装と外部サービス連携）に適用するルール
+globs: app/infrastructure/**/*.go
+alwaysApply: false
+---
+
+# infrastructure層の修正をする際に適用するルール
+
+## 役割
+ - リポジトリの実装
+   - データベースアクセス実装
+   - 外部APIクライアント
+
+## **詳細構造と命名規則**
+ ```
+ infrastructure/
+ ├── repository/                 # リポジトリ実装
+ │   ├── user_repository.go      # Userリポジトリ実装
+ │   └── order_repository.go     # Orderリポジトリ実装
+ ├── external/                   # 外部サービスクライアント
+ │   ├── payment_client.go       # 決済サービスクライアント
+ │   └── notification_client.go  # 通知サービスクライアント
+ └── grpc/                       # gRPC関連の実装
+ ```
+ 
+## **実装ポイント**
+ - リポジトリはドメイン層で定義されたインターフェースを実装します
+ - データベースアクセスの詳細はこの層に閉じ込めます
+ - 外部サービスとの連携もこの層で実装します
+ - エラーハンドリングとリトライロジックを適切に実装します
+ - パフォーマンスを考慮したクエリ最適化を行います
+ 
+## 実装例
+- repository（データベースアクセス）: [user_repository.go](../../../app/infrastructure/repository/user_repository.go) 
+- external（外部APIクライアント）: [payment_client.go](../../../app/infrastructure/external/payment_client.go)
